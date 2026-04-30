@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Crumbs Admin | Learning Hub</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0b0f1a;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+    .login-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 20% 30%, #1e293b, #0f172a);
+      padding: 1.5rem;
+    }
+    .login-box {
+      background: rgba(17, 24, 39, 0.9);
+      backdrop-filter: blur(18px);
+      padding: 2.8rem 2.2rem;
+      border-radius: 38px;
+      width: 100%;
+      max-width: 420px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+    .login-box h2 { font-weight: 600; font-size: 1.8rem; margin-bottom: 1.8rem; color: #f1f5f9; }
+    .login-box h2 i { color: #38bdf8; margin-right: 8px; }
+    .admin-wrapper { display: flex; min-height: 100vh; }
+    .admin-sidebar {
+      width: 280px;
+      background: linear-gradient(180deg, #020617 0%, #0a0f1e 100%);
+      border-right: 1px solid rgba(56, 189, 248, 0.18);
+      padding: 2rem 1.2rem;
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+    }
+    .admin-main {
+      flex: 1;
+      margin-left: 280px;
+      padding: 2rem 2.5rem;
+      background: #0f172a;
+      min-height: 100vh;
+    }
+    .sidebar-header {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 2.5rem;
+      padding-left: 8px;
+      color: #f8fafc;
+    }
+    .sidebar-header i { color: #38bdf8; margin-right: 6px; }
+    .nav-item {
+      padding: 12px 18px;
+      border-radius: 16px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #cbd5e1;
+    }
+    .nav-item i { width: 20px; font-size: 1.1rem; text-align: center; }
+    .nav-item:hover { background: rgba(56, 189, 248, 0.08); color: #f1f5f9; }
+    .nav-item.active { background: #1e293b; color: #38bdf8; box-shadow: 0 4px 12px rgba(0,0,0,0.4); font-weight: 600; }
+    .logout-item { margin-top: auto; background: transparent; color: #94a3b8; border-top: 1px solid #1e293b; padding-top: 1.2rem; margin-top: 2rem; }
+    .logout-item:hover { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+    .glass-card {
+      background: #111827;
+      border-radius: 28px;
+      padding: 1.8rem 2rem;
+      margin-bottom: 2rem;
+      border: 1px solid #1e293b;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      border: none;
+      padding: 12px 28px;
+      border-radius: 40px;
+      font-weight: 600;
+      color: white;
+      cursor: pointer;
+      transition: all 0.25s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 10px 18px -8px rgba(56,189,248,0.4); }
+    .btn-primary:disabled { opacity: 0.6; transform: none; pointer-events: none; }
+    .btn-danger { background: #991b1b; border: none; padding: 8px 18px; border-radius: 40px; color: white; cursor: pointer; font-weight: 500; transition: 0.2s; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-success { background: #059669; border: none; padding: 8px 18px; border-radius: 40px; color: white; cursor: pointer; font-weight: 500; transition: 0.2s; }
+    .btn-success:hover { background: #047857; }
+    input, select, textarea {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 12px 16px;
+      border-radius: 18px;
+      color: #f1f5f9;
+      width: 100%;
+      margin-bottom: 1.2rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      transition: border 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.2);
+    }
+    input[type="file"] { padding: 10px; background: #1e293b; color: #cbd5e1; }
+    .resources-table { width: 100%; border-collapse: collapse; }
+    .resources-table th {
+      text-align: left;
+      padding: 14px 12px;
+      border-bottom: 2px solid #334155;
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+    .resources-table td { padding: 14px 12px; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+    .delete-icon, .edit-icon { cursor: pointer; font-size: 1.2rem; transition: 0.2s; margin: 0 6px; }
+    .delete-icon:hover { color: #f87171; transform: scale(1.1); }
+    .edit-icon:hover { color: #38bdf8; transform: scale(1.1); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+    .stat-card { background: #111827; border-radius: 22px; padding: 1.4rem 1.2rem; border: 1px solid #1e293b; }
+    .stat-number { font-size: 2.2rem; font-weight: 700; color: #38bdf8; }
+    .loading { text-align: center; padding: 2.5rem; color: #64748b; font-style: italic; }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #10b981;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 40px;
+      z-index: 1100;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+      animation: slideIn 0.3s ease;
+      font-weight: 500;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(120%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: #111827;
+      border-radius: 32px;
+      max-width: 500px;
+      width: 90%;
+      padding: 2.2rem;
+      border: 1px solid #334155;
+      box-shadow: 0 30px 50px rgba(0,0,0,0.7);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .section-badge {
+      background: #1e293b;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: capitalize;
+    }
+    .request-card {
+      background: #0f172a;
+      padding: 1.2rem;
+      border-radius: 18px;
+      margin-bottom: 1rem;
+      border-left: 5px solid #f59e0b;
+      transition: all 0.2s;
+    }
+    .request-card.completed { border-left-color: #10b981; }
+    .file-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #1e293b;
+      padding: 6px 12px;
+      border-radius: 12px;
+      color: #38bdf8;
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-top: 4px;
+      transition: 0.2s;
+    }
+    .file-link:hover { background: #2d3a4f; }
+    a { color: #38bdf8; text-decoration: none; }
+    small { color: #94a3b8; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-pending { background: #f59e0b20; color: #f59e0b; }
+    .badge-completed { background: #10b98120; color: #10b981; }
+    @media (max-width: 768px) {
+      .admin-sidebar { width: 80px; padding: 1.5rem 0.5rem; }
+      .admin-sidebar .nav-item span, .sidebar-header span { display: none; }
+      .admin-main { margin-left: 80px; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="login-container">
+  <div class="login-box">
+    <h2><i class="fas fa-shield-haltered"></i> Crumbs Admin</h2>
+    <p style="color:#94a3b8; margin-bottom:1.8rem;">Secure access · Supabase backend</p>
+    <input type="password" id="adminPassword" placeholder="Enter admin password" autocomplete="off">
+    <button class="btn-primary" id="loginBtn" style="width:100%; margin-top:0.5rem;">
+      <i class="fas fa-lock-open"></i> Login
+    </button>
+    <p style="margin-top:1.2rem; font-size:0.8rem; color:#64748b;">Default credentials: admin123</p>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="adminApp" style="display: none;">
+  <div class="admin-wrapper">
+    <!-- SIDEBAR -->
+    <div class="admin-sidebar">
+      <div class="sidebar-header"><i class="fas fa-cubes"></i> <span>Crumbs</span></div>
+      <div class="nav-item active" data-tab="dashboard"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></div>
+      <div class="nav-item" data-tab="upload"><i class="fas fa-cloud-upload-alt"></i> <span>Upload</span></div>
+      <div class="nav-item" data-tab="manage"><i class="fas fa-layer-group"></i> <span>Manage Files</span></div>
+      <div class="nav-item" data-tab="requests"><i class="fas fa-inbox"></i> <span>Requests</span></div>
+      <div class="nav-item logout-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="admin-main">
+      <!-- DASHBOARD -->
+      <div id="dashboardPanel">
+        <h2 style="margin-bottom:1.5rem; font-weight:600;"><i class="fas fa-chart-pie" style="color:#38bdf8;"></i> Overview</h2>
+        <div class="stats-grid" id="statsGrid"><div class="loading"><i class="fas fa-spinner fa-pulse"></i> Loading stats...</div></div>
+        <div class="glass-card">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-database" style="font-size:1.6rem; color:#38bdf8;"></i>
+            <span style="font-weight:500;">Supabase Storage · Real-time sync</span>
+          </div>
+          <small style="display:block; margin-top:10px;">Files are stored securely. Public links are generated automatically.</small>
+        </div>
+      </div>
+
+      <!-- UPLOAD PANEL -->
+      <div id="uploadPanel" style="display:none;">
+        <div class="glass-card">
+          <h3 style="margin-bottom:1.2rem;"><i class="fas fa-upload"></i> Upload New Resource</h3>
+          <form id="uploadForm">
+            <input type="text" id="resTitle" placeholder="Resource Title *" required>
+            <select id="resSection" required>
+              <option value="notes">📘 Notes</option>
+              <option value="exercises">🧪 Exercises</option>
+              <option value="quizzes">❓ Quizzes</option>
+              <option value="tutorials">📄 Tutorials</option>
+              <option value="answers">✅ Answers</option>
+            </select>
+            <input type="file" id="resFile" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp" required>
+            <small>Max 10MB · PDF, DOC, TXT, Images</small>
+            <button type="submit" class="btn-primary" style="margin-top:1.2rem; width:100%;"><i class="fas fa-cloud-upload-alt"></i> Upload & Publish</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- MANAGE PANEL -->
+      <div id="managePanel" style="display:none;">
+        <div class="glass-card">
+          <h3 style="margin-bottom:1rem;"><i class="fas fa-edit"></i> Manage Resources</h3>
+          <div style="overflow-x: auto;">
+            <table class="resources-table">
+              <thead><tr><th>Title</th><th>Section</th><th>File</th><th style="text-align:center;">Actions</th></tr></thead>
+              <tbody id="manageTableBody"><tr><td colspan="4" class="loading">Loading resources...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- REQUESTS PANEL -->
+      <div id="requestsPanel" style="display:none;">
+        <div class="glass-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <h3><i class="fas fa-inbox"></i> Assignment Requests</h3>
+            <button class="btn-primary" onclick="renderRequests()" style="padding:8px 16px;">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+          <div id="requestsList"><div class="loading">Loading requests...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT RESOURCE MODAL -->
+<div id="editModal" class="modal">
+  <div class="modal-content">
+    <h3 style="margin-bottom:1.3rem;"><i class="fas fa-pen-to-square"></i> Edit Resource</h3>
+    <form id="editForm">
+      <input type="hidden" id="editId">
+      <input type="text" id="editTitle" placeholder="Resource title" required>
+      <select id="editSection">
+        <option value="notes">Notes</option>
+        <option value="exercises">Exercises</option>
+        <option value="quizzes">Quizzes</option>
+        <option value="tutorials">Tutorials</option>
+        <option value="answers">Answers</option>
+      </select>
+      <input type="file" id="editFile" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp">
+      <small>Leave empty to keep current file</small>
+      <div style="display: flex; gap: 14px; margin-top: 1.5rem; justify-content: flex-end;">
+        <button type="button" id="closeModalBtn" class="btn-danger"><i class="fas fa-times"></i> Cancel</button>
+        <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- RESPOND TO REQUEST MODAL -->
+<div id="respondModal" class="modal">
+  <div class="modal-content">
+    <h3 style="margin-bottom:1.3rem;"><i class="fas fa-reply"></i> Respond to Request</h3>
+    <form id="respondForm">
+      <input type="hidden" id="respondRequestId">
+      <div id="respondRequestInfo" style="margin-bottom:1rem;"></div>
+      <label style="display:block; margin-bottom:0.5rem; font-weight:500;">Upload Response File (optional)</label>
+      <input type="file" id="respondFile" accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp">
+      <small>Attach solution, feedback, or completed assignment</small>
+      <div style="display: flex; gap: 14px; margin-top: 1.5rem; justify-content: flex-end;">
+        <button type="button" id="closeRespondModalBtn" class="btn-danger"><i class="fas fa-times"></i> Cancel</button>
+        <button type="submit" class="btn-success"><i class="fas fa-check"></i> Mark Complete & Send</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // ---------- SUPABASE CONFIGURATION ----------
+    const SUPABASE_URL = 'https://zmplzjbbsbkbwkvhpfth.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptcGx6amJic2JrYndrdmhwZnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjIyODgsImV4cCI6MjA4NDkzODI4OH0.E4DW4ApG5Okc09WMKA3QzsOTjurzc_QK_9MR2emaDqc';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const ADMIN_PASSWORD = 'admin123';
+    
+    // ---------- UTILS ----------
+    function showToast(message, isError = false) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.style.background = isError ? '#dc2626' : '#10b981';
+      toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3200);
+    }
+    
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        if (m === '"') return '&quot;';
+        return '&#039;';
+      });
+    }
+    
+    // ---------- SUPABASE DATA FUNCTIONS ----------
+    async function fetchResources() {
+      const { data, error } = await supabase.from('resources').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+    
+    async function uploadFileToStorage(file, bucket = 'resources') {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+      const { data, error } = await supabase.storage.from(bucket).upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileName);
+      return { publicUrl, fileName };
+    }
+    
+    async function addResource(title, section, file) {
+      const { publicUrl } = await uploadFileToStorage(file);
+      const { data, error } = await supabase.from('resources').insert([{
+        title, section, file_url: publicUrl, file_name: file.name, file_size: file.size
+      }]).select();
+      if (error) throw error;
+      return data;
+    }
+    
+    async function updateResource(id, title, section, newFile = null) {
+      let updateData = { title, section };
+      if (newFile) {
+        const { publicUrl } = await uploadFileToStorage(newFile);
+        updateData.file_url = publicUrl;
+        updateData.file_name = newFile.name;
+        updateData.file_size = newFile.size;
+      }
+      const { data, error } = await supabase.from('resources').update(updateData).eq('id', id).select();
+      if (error) throw error;
+      return data;
+    }
+    
+    async function deleteResource(id, fileUrl) {
+      try {
+        const fileName = fileUrl.split('/').pop();
+        if (fileName) await supabase.storage.from('resources').remove([fileName]);
+      } catch (storageError) { console.warn('Storage delete warning:', storageError); }
+      const { error } = await supabase.from('resources').delete().eq('id', id);
+      if (error) throw error;
+    }
+    
+    async function fetchRequests() {
+      const { data, error } = await supabase.from('assignment_requests').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+    
+    async function updateRequestStatus(id, status, responseFileUrl = null, responseFileName = null) {
+      let updateData = { status };
+      if (responseFileUrl) {
+        updateData.response_file_url = responseFileUrl;
+        updateData.response_file_name = responseFileName;
+      }
+      const { error } = await supabase.from('assignment_requests').update(updateData).eq('id', id);
+      if (error) throw error;
+    }
+    
+    // Request file upload
+    async function uploadRequestFile(file) {
+      return await uploadFileToStorage(file, 'request-files');
+    }
+    
+    // ---------- UI RENDERING ----------
+    async function updateStats() {
+      const grid = document.getElementById('statsGrid');
+      try {
+        const [resources, requests] = await Promise.all([fetchResources(), fetchRequests()]);
+        const pendingRequests = requests.filter(r => r.status !== 'completed').length;
+        grid.innerHTML = `
+          <div class="stat-card"><div class="stat-number">${resources.length}</div><div>Total Files</div></div>
+          <div class="stat-card"><div class="stat-number">${resources.filter(r => r.section === 'notes').length}</div><div>📘 Notes</div></div>
+          <div class="stat-card"><div class="stat-number">${resources.filter(r => r.section === 'exercises').length}</div><div>🧪 Exercises</div></div>
+          <div class="stat-card"><div class="stat-number">${pendingRequests}</div><div>📋 Pending Requests</div></div>
+        `;
+      } catch (err) {
+        grid.innerHTML = '<div class="loading">Failed to load stats</div>';
+      }
+    }
+    
+    async function renderManageTable() {
+      const tbody = document.getElementById('manageTableBody');
+      try {
+        const resources = await fetchResources();
+        if (!resources.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="loading">No resources uploaded yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = resources.map(r => `
+          <tr>
+            <td><strong>${escapeHtml(r.title)}</strong></td>
+            <td><span class="section-badge">${escapeHtml(r.section)}</span></td>
+            <td><a href="${escapeHtml(r.file_url)}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Open</a></td>
+            <td style="text-align:center;">
+              <i class="fas fa-edit edit-icon" data-resource='${escapeHtml(JSON.stringify(r))}' title="Edit"></i>
+              <i class="fas fa-trash-alt delete-icon" data-resource='${escapeHtml(JSON.stringify(r))}' title="Delete"></i>
+            </td>
+          </tr>
+        `).join('');
+        
+        document.querySelectorAll('.edit-icon').forEach(el => {
+          el.addEventListener('click', () => {
+            try { openEditModal(JSON.parse(el.dataset.resource)); } catch(ex) { console.error(ex); }
+          });
+        });
+        document.querySelectorAll('.delete-icon').forEach(el => {
+          el.addEventListener('click', async () => {
+            try {
+              const resource = JSON.parse(el.dataset.resource);
+              if (confirm(`Permanently delete "${resource.title}"?`)) {
+                await deleteResource(resource.id, resource.file_url);
+                showToast(`Deleted "${resource.title}"`);
+                renderManageTable();
+                updateStats();
+              }
+            } catch(ex) { console.error(ex); }
+          });
+        });
+      } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="4" class="loading">Error loading resources.</td></tr>';
+      }
+    }
+    
+    function openEditModal(resource) {
+      document.getElementById('editId').value = resource.id;
+      document.getElementById('editTitle').value = resource.title || '';
+      document.getElementById('editSection').value = resource.section || 'notes';
+      document.getElementById('editFile').value = '';
+      document.getElementById('editModal').style.display = 'flex';
+    }
+    
+    function openRespondModal(request) {
+      document.getElementById('respondRequestId').value = request.id;
+      document.getElementById('respondRequestInfo').innerHTML = `
+        <div style="background:#1e293b; padding:1rem; border-radius:12px;">
+          <strong>${escapeHtml(request.name)}</strong> · ${escapeHtml(request.email)}<br>
+          <small>${escapeHtml(request.details || 'No details')}</small>
+          ${request.file_name ? `<br><a href="${escapeHtml(request.file_url || '#')}" target="_blank" class="file-link"><i class="fas fa-download"></i> Download attached file: ${escapeHtml(request.file_name)}</a>` : ''}
+        </div>
+      `;
+      document.getElementById('respondFile').value = '';
+      document.getElementById('respondModal').style.display = 'flex';
+    }
+    
+    async function renderRequests() {
+      const container = document.getElementById('requestsList');
+      try {
+        const requests = await fetchRequests();
+        if (!requests.length) {
+          container.innerHTML = '<div class="loading">No assignment requests yet.</div>';
+          return;
+        }
+        container.innerHTML = requests.map(req => `
+          <div class="request-card ${req.status === 'completed' ? 'completed' : ''}">
+            <div style="display:flex; justify-content:space-between; align-items:start;">
+              <div>
+                <strong>${escapeHtml(req.name)}</strong>
+                <div style="font-size:0.9rem; color:#94a3b8;">${escapeHtml(req.email)}</div>
+              </div>
+              <span class="badge ${req.status === 'completed' ? 'badge-completed' : 'badge-pending'}">${req.status || 'pending'}</span>
+            </div>
+            <p style="margin:10px 0;">${escapeHtml(req.details || 'No details provided')}</p>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+              <small><i class="fas fa-clock"></i> ${new Date(req.created_at).toLocaleString()}</small>
+              ${req.file_name ? `
+                <a href="${escapeHtml(req.file_url || '#')}" target="_blank" class="file-link" title="Download student's attached file">
+                  <i class="fas fa-paperclip"></i> ${escapeHtml(req.file_name)}
+                </a>
+              ` : ''}
+              ${req.response_file_url ? `
+                <a href="${escapeHtml(req.response_file_url)}" target="_blank" class="file-link" style="background:#05966920; color:#10b981;" title="Download your response file">
+                  <i class="fas fa-check-circle"></i> Response: ${escapeHtml(req.response_file_name || 'Download')}
+                </a>
+              ` : ''}
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+              ${req.status !== 'completed' ? `
+                <button class="btn-success" style="padding:6px 16px;" onclick="window.respondToRequest('${escapeHtml(JSON.stringify(req))}')">
+                  <i class="fas fa-reply"></i> Respond & Complete
+                </button>
+              ` : ''}
+              <button class="btn-danger" style="padding:6px 16px;" onclick="if(confirm('Delete this request?')) { window.deleteRequest(${req.id}); }">
+                <i class="fas fa-trash"></i> Delete
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (error) {
+        container.innerHTML = '<div class="loading">Failed to load requests.</div>';
+      }
+    }
+    
+    // Global functions for onclick handlers
+    window.respondToRequest = function(reqJson) {
+      try {
+        const request = JSON.parse(reqJson);
+        openRespondModal(request);
+      } catch(e) { console.error(e); }
+    };
+    
+    window.deleteRequest = async function(id) {
+      const { error } = await supabase.from('assignment_requests').delete().eq('id', id);
+      if (error) {
+        showToast('Failed to delete request', true);
+      } else {
+        showToast('Request deleted');
+        renderRequests();
+        updateStats();
+      }
+    };
+    
+    // ---------- TAB NAVIGATION ----------
+    function showTab(tabName) {
+      ['dashboard', 'upload', 'manage', 'requests'].forEach(name => {
+        document.getElementById(`${name}Panel`).style.display = name === tabName ? 'block' : 'none';
+      });
+      document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.tab === tabName) item.classList.add('active');
+      });
+      if (tabName === 'dashboard') updateStats();
+      else if (tabName === 'manage') renderManageTable();
+      else if (tabName === 'requests') renderRequests();
+    }
+    
+    // ---------- EVENT LISTENERS ----------
+    document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => showTab(btn.dataset.tab));
+    });
+    
+    // Upload resource form
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('resTitle').value.trim();
+      const section = document.getElementById('resSection').value;
+      const file = document.getElementById('resFile').files[0];
+      if (!title || !file) { showToast('Title and file are required', true); return; }
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+      try {
+        await addResource(title, section, file);
+        showToast(`"${title}" published!`);
+        document.getElementById('uploadForm').reset();
+        updateStats();
+      } catch (err) {
+        showToast(`Upload failed: ${err.message}`, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload & Publish';
+      }
+    });
+    
+    // Edit resource form
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = parseInt(document.getElementById('editId').value, 10);
+      const title = document.getElementById('editTitle').value.trim();
+      const section = document.getElementById('editSection').value;
+      const newFile = document.getElementById('editFile').files[0] || null;
+      try {
+        await updateResource(id, title, section, newFile);
+        showToast('Resource updated');
+        document.getElementById('editModal').style.display = 'none';
+        renderManageTable();
+        updateStats();
+      } catch (err) {
+        showToast(`Update error: ${err.message}`, true);
+      }
+    });
+    
+    // Respond to request form
+    document.getElementById('respondForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = parseInt(document.getElementById('respondRequestId').value, 10);
+      const file = document.getElementById('respondFile').files[0] || null;
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      
+      try {
+        let responseFileUrl = null;
+        let responseFileName = null;
+        
+        if (file) {
+          const { publicUrl, fileName } = await uploadRequestFile(file);
+          responseFileUrl = publicUrl;
+          responseFileName = fileName;
+        }
+        
+        await updateRequestStatus(id, 'completed', responseFileUrl, responseFileName);
+        showToast('Request completed successfully!');
+        document.getElementById('respondModal').style.display = 'none';
+        renderRequests();
+        updateStats();
+      } catch (err) {
+        showToast(`Error: ${err.message}`, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Mark Complete & Send';
+      }
+    });
+    
+    // Modal close handlers
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+      document.getElementById('editModal').style.display = 'none';
+    });
+    document.getElementById('closeRespondModalBtn').addEventListener('click', () => {
+      document.getElementById('respondModal').style.display = 'none';
+    });
+    window.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('editModal')) document.getElementById('editModal').style.display = 'none';
+      if (e.target === document.getElementById('respondModal')) document.getElementById('respondModal').style.display = 'none';
+    });
+    
+    // Login
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const pwd = document.getElementById('adminPassword').value;
+      if (pwd !== ADMIN_PASSWORD) { alert('Incorrect password'); return; }
+      try {
+        await fetchResources();
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('adminApp').style.display = 'block';
+        updateStats();
+        showTab('dashboard');
+      } catch (err) {
+        alert('⚠️ Supabase connection failed. Check URL/Key in code.');
+        console.error(err);
+      }
+    });
+    
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      document.getElementById('adminApp').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('adminPassword').value = '';
+    });
+    
+    document.getElementById('adminPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') document.getElementById('loginBtn').click();
+    });
+  })();
+</script>
+</body>
+</html>
