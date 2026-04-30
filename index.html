@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Crumbs | Student Resource Hub</title>
+  <meta name="description" content="Access notes, exercises, quizzes, and request assignment help.">
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f5f7fc;
+      color: #121826;
+      line-height: 1.5;
+      transition: background 0.2s;
+    }
+    /* Header */
+    header {
+      background: linear-gradient(125deg, #0b1c2e 0%, #102a3c 100%);
+      color: white;
+      padding: 2.4rem 1.5rem 1.8rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 30% 40%, rgba(56,189,248,0.12) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    header h1 {
+      font-size: 2.8rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      z-index: 2;
+    }
+    header h1 i {
+      color: #38bdf8;
+      font-size: 2.4rem;
+    }
+    header p {
+      margin-top: 0.5rem;
+      font-weight: 400;
+      color: #cbd5e1;
+      position: relative;
+      z-index: 2;
+      font-size: 1.1rem;
+    }
+    .search-wrapper {
+      max-width: 580px;
+      margin: 1.6rem auto 0;
+      position: relative;
+      z-index: 2;
+    }
+    .search-wrapper i {
+      position: absolute;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-size: 1.1rem;
+    }
+    #searchInput {
+      width: 100%;
+      padding: 15px 22px 15px 52px;
+      border-radius: 60px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 500;
+      background: rgba(255,255,255,0.95);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.25);
+      outline: none;
+      transition: 0.2s;
+    }
+    #searchInput:focus {
+      box-shadow: 0 16px 32px rgba(0,0,0,0.3), 0 0 0 3px rgba(56,189,248,0.5);
+    }
+    /* Navigation */
+    nav {
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(18px);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 22px;
+      position: sticky;
+      top: 0;
+      z-index: 25;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.03);
+    }
+    nav button {
+      background: transparent;
+      border: none;
+      padding: 10px 22px;
+      font-weight: 600;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: all 0.25s;
+      color: #1e293b;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 0.95rem;
+    }
+    nav button i {
+      font-size: 1rem;
+    }
+    nav button:hover {
+      background: #eef2f6;
+    }
+    .nav-active {
+      background: #0f2b3b !important;
+      color: white !important;
+      box-shadow: 0 6px 14px rgba(15,43,59,0.3);
+    }
+    /* Main content */
+    main {
+      max-width: 1340px;
+      margin: 2.2rem auto;
+      padding: 0 28px;
+    }
+    .section {
+      display: none;
+      animation: fadeSlide 0.35s ease-out;
+    }
+    .section.active {
+      display: block;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1.8rem;
+      border-left: 6px solid #38bdf8;
+      padding-left: 20px;
+    }
+    .section-header h2 {
+      font-weight: 700;
+      font-size: 1.8rem;
+      letter-spacing: -0.3px;
+      color: #0f172a;
+    }
+    .resource-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+      gap: 22px;
+    }
+    .file-card {
+      background: white;
+      border-radius: 26px;
+      padding: 18px 22px;
+      transition: all 0.28s ease;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.04);
+      border: 1px solid #f1f5f9;
+    }
+    .file-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 22px 35px -12px rgba(0,0,0,0.13);
+      border-color: #cbd5e1;
+    }
+    .file-icon {
+      background: #eef6ff;
+      width: 52px;
+      height: 52px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.7rem;
+      color: #2563eb;
+      flex-shrink: 0;
+    }
+    .file-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-info a {
+      text-decoration: none;
+      font-weight: 700;
+      color: #0f2b3b;
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 1.05rem;
+    }
+    .file-info a:hover {
+      color: #2563eb;
+      text-decoration: underline;
+    }
+    .file-meta {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .empty-state {
+      background: #ffffff;
+      border-radius: 36px;
+      padding: 3.5rem 2rem;
+      text-align: center;
+      color: #7f8ea0;
+      border: 1px dashed #cdd9e6;
+      grid-column: 1 / -1;
+      font-weight: 500;
+    }
+    .form-card {
+      background: white;
+      border-radius: 34px;
+      max-width: 680px;
+      margin: 0.8rem auto;
+      padding: 2.2rem;
+      box-shadow: 0 24px 40px -16px rgba(0,0,0,0.12);
+      border: 1px solid #edf2f9;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 13px 18px;
+      border-radius: 20px;
+      border: 1.5px solid #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      margin-bottom: 1.2rem;
+      font-size: 0.95rem;
+      background: #fafbfc;
+      transition: 0.2s;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
+      background: white;
+    }
+    .submit-btn {
+      background: linear-gradient(105deg, #1e3345, #0f2b3b);
+      color: white;
+      border: none;
+      padding: 15px 24px;
+      border-radius: 40px;
+      font-weight: 700;
+      width: 100%;
+      cursor: pointer;
+      font-size: 1rem;
+      letter-spacing: 0.3px;
+      transition: 0.25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .submit-btn:hover {
+      background: linear-gradient(105deg, #243b4d, #173244);
+      box-shadow: 0 12px 22px rgba(0,0,0,0.15);
+    }
+    .loading-spinner {
+      text-align: center;
+      padding: 3.5rem;
+      color: #5f6b7a;
+      grid-column: 1 / -1;
+    }
+    .count-badge {
+      background: #e9eef3;
+      padding: 3px 14px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #1e293b;
+    }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><i class="fas fa-seedling"></i> Crumbs</h1>
+    <p>📚 Smart notes, exercises, tutorials & answers — all in one place</p>
+    <div class="search-wrapper">
+      <i class="fas fa-search"></i>
+      <input type="text" id="searchInput" placeholder="Search by title... (e.g. calculus, quiz)" autocomplete="off">
+    </div>
+  </header>
+
+  <nav id="navTabs">
+    <button data-section="notes" class="nav-active"><i class="fas fa-book-open"></i> Notes</button>
+    <button data-section="exercises"><i class="fas fa-dumbbell"></i> Exercises</button>
+    <button data-section="quizzes"><i class="fas fa-question-circle"></i> Quizzes</button>
+    <button data-section="tutorials"><i class="fas fa-chalkboard-user"></i> Tutorials</button>
+    <button data-section="answers"><i class="fas fa-check-double"></i> Answers</button>
+    <button data-section="assignments"><i class="fas fa-pen-ruler"></i> Request Help</button>
+  </nav>
+
+  <main>
+    <!-- NOTES -->
+    <div id="notes" class="section active">
+      <div class="section-header">
+        <h2><i class="fas fa-book" style="color:#2563eb;"></i> Notes</h2>
+        <span id="notesCount" class="count-badge">0</span>
+      </div>
+      <div id="notesList" class="resource-grid"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading notes...</div></div>
+    </div>
+    <!-- EXERCISES -->
+    <div id="exercises" class="section">
+      <div class="section-header">
+        <h2><i class="fas fa-dumbbell" style="color:#2563eb;"></i> Exercises</h2>
+        <span id="exercisesCount" class="count-badge">0</span>
+      </div>
+      <div id="exercisesList" class="resource-grid"></div>
+    </div>
+    <!-- QUIZZES -->
+    <div id="quizzes" class="section">
+      <div class="section-header">
+        <h2><i class="fas fa-question-circle" style="color:#2563eb;"></i> Quizzes</h2>
+        <span id="quizzesCount" class="count-badge">0</span>
+      </div>
+      <div id="quizzesList" class="resource-grid"></div>
+    </div>
+    <!-- TUTORIALS -->
+    <div id="tutorials" class="section">
+      <div class="section-header">
+        <h2><i class="fas fa-chalkboard-user" style="color:#2563eb;"></i> Tutorials</h2>
+        <span id="tutorialsCount" class="count-badge">0</span>
+      </div>
+      <div id="tutorialsList" class="resource-grid"></div>
+    </div>
+    <!-- ANSWERS -->
+    <div id="answers" class="section">
+      <div class="section-header">
+        <h2><i class="fas fa-check-double" style="color:#2563eb;"></i> Answers</h2>
+        <span id="answersCount" class="count-badge">0</span>
+      </div>
+      <div id="answersList" class="resource-grid"></div>
+    </div>
+    <!-- ASSIGNMENT REQUEST -->
+    <div id="assignments" class="section">
+      <div class="section-header">
+        <h2><i class="fas fa-pen-ruler"></i> Request Assignment Help</h2>
+        <span style="color:#64748b;">Get personalized support</span>
+      </div>
+      <div class="form-card">
+        <form id="assignmentForm">
+          <input type="text" id="studentName" placeholder="Your full name *" required>
+          <input type="email" id="studentEmail" placeholder="Email address *" required>
+          <textarea id="assignmentDetails" placeholder="Describe your assignment, deadline, specific requirements..." required rows="4"></textarea>
+
+          <button type="submit" class="submit-btn"><i class="fas fa-paper-plane"></i> Submit Request</button>
+        </form>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <i class="fas fa-shield-alt"></i> Crumbs · Resources updated in real-time · <span id="lastUpdate">just now</span>
+  </footer>
+
+  <script>
+    (function() {
+      // ---------- SUPABASE CONFIGURATION ----------
+      // Using the provided credentials (already configured)
+      const SUPABASE_URL = 'https://zmplzjbbsbkbwkvhpfth.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptcGx6amJic2JrYndrdmhwZnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjIyODgsImV4cCI6MjA4NDkzODI4OH0.E4DW4ApG5Okc09WMKA3QzsOTjurzc_QK_9MR2emaDqc';
+      
+      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      
+      let allResources = [];
+      let refreshTimer = null;
+      
+      // ---------- DATA FETCHING ----------
+      async function loadResources() {
+        const { data, error } = await supabase
+          .from('resources')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('Supabase fetch error:', error);
+          return [];
+        }
+        return data || [];
+      }
+      
+      function getFileIconByTitle(title) {
+        if (!title) return '<i class="fas fa-file"></i>';
+        const lower = title.toLowerCase();
+        if (lower.includes('quiz') || lower.includes('test')) return '<i class="fas fa-file-signature"></i>';
+        if (lower.includes('pdf') || lower.includes('doc')) return '<i class="fas fa-file-pdf"></i>';
+        if (lower.includes('exercise') || lower.includes('problem')) return '<i class="fas fa-file-code"></i>';
+        return '<i class="fas fa-file-alt"></i>';
+      }
+      
+      function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>"']/g, function(m) {
+          if (m === '&') return '&amp;';
+          if (m === '<') return '&lt;';
+          if (m === '>') return '&gt;';
+          if (m === '"') return '&quot;';
+          return '&#039;';
+        });
+      }
+      
+      // ---------- RENDER SECTIONS ----------
+      async function displayFiles() {
+        allResources = await loadResources();
+        const query = document.getElementById('searchInput').value.trim().toLowerCase();
+        const sections = ['notes', 'exercises', 'quizzes', 'tutorials', 'answers'];
+        
+        for (const section of sections) {
+          const container = document.getElementById(`${section}List`);
+          const countSpan = document.getElementById(`${section}Count`);
+          if (!container) continue;
+          
+          const filtered = allResources.filter(r => 
+            r.section === section && 
+            (query === '' || r.title.toLowerCase().includes(query))
+          );
+          
+          if (countSpan) {
+            countSpan.textContent = `${filtered.length} item${filtered.length !== 1 ? 's' : ''}`;
+          }
+          
+          if (filtered.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open" style="font-size:2rem; opacity:0.6;"></i><p style="margin-top:10px;">No ${section} found${query ? ' matching search' : ''}</p></div>`;
+            continue;
+          }
+          
+          container.innerHTML = filtered.map(file => {
+            const safeTitle = escapeHtml(file.title);
+            const safeUrl = escapeHtml(file.file_url);
+            return `
+              <div class="file-card">
+                <div class="file-icon">${getFileIconByTitle(file.title)}</div>
+                <div class="file-info">
+                  <a href="${safeUrl}" target="_blank" rel="noopener" title="${safeTitle}">${safeTitle}</a>
+                  <div class="file-meta">
+                    <i class="fas fa-external-link-alt"></i> Click to open
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+        
+        // Update footer timestamp
+        const lastUpdateEl = document.getElementById('lastUpdate');
+        if (lastUpdateEl) {
+          lastUpdateEl.textContent = `updated ${new Date().toLocaleTimeString()}`;
+        }
+      }
+      
+      // ---------- TAB SWITCHING ----------
+      function showSection(sectionId) {
+        document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+        const target = document.getElementById(sectionId);
+        if (target) target.classList.add('active');
+        
+        document.querySelectorAll('#navTabs button').forEach(btn => {
+          btn.classList.remove('nav-active');
+          if (btn.getAttribute('data-section') === sectionId) {
+            btn.classList.add('nav-active');
+          }
+        });
+        
+        // Refresh data when switching to assignment tab (to keep requests consistent, but displayFiles covers resources)
+        if (sectionId !== 'assignments') {
+          // already handled by global refresh
+        }
+      }
+      
+      // ---------- ASSIGNMENT SUBMISSION ----------
+      document.getElementById('assignmentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('studentName').value.trim();
+        const email = document.getElementById('studentEmail').value.trim();
+        const details = document.getElementById('assignmentDetails').value.trim();
+        const fileInput = document.getElementById('assignmentFile');
+        let fileName = null;
+        
+        if (fileInput.files.length > 0) {
+          fileName = fileInput.files[0].name;
+        }
+        
+        if (!name || !email || !details) {
+          alert('Please fill in all required fields (name, email, details).');
+          return;
+        }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        
+        const { error } = await supabase.from('assignment_requests').insert([{
+          name,
+          email,
+          details,
+          file_name: fileName,
+          status: 'pending'
+        }]);
+        
+        if (error) {
+          alert('❌ Submission failed. Please try again.');
+          console.error(error);
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+        } else {
+          alert('✅ Request submitted successfully! Admin will review it.');
+          document.getElementById('assignmentForm').reset();
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+        }
+      });
+      
+      // ---------- EVENT LISTENERS ----------
+      document.querySelectorAll('#navTabs button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const section = btn.getAttribute('data-section');
+          showSection(section);
+        });
+      });
+      
+      // Search with debounce
+      let debounceTimeout;
+      document.getElementById('searchInput').addEventListener('input', () => {
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+          displayFiles();
+        }, 250);
+      });
+      
+      // Initial load & auto-refresh (every 8 seconds to reduce load, but still fresh)
+      displayFiles().then(() => {
+        console.log('Initial resources loaded.');
+      });
+      
+      refreshTimer = setInterval(displayFiles, 8000);
+      
+      // Cleanup timer on page unload (good practice)
+      window.addEventListener('beforeunload', () => {
+        if (refreshTimer) clearInterval(refreshTimer);
+      });
+      
+      // Set initial active nav
+      document.querySelector('#navTabs button[data-section="notes"]').classList.add('nav-active');
+    })();
+  </script>
+</body>
+</html>
