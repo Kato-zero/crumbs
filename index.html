@@ -77,6 +77,7 @@
       transform: translateY(-50%);
       color: #64748b;
       font-size: 1.1rem;
+      pointer-events: none;
     }
     #searchInput {
       width: 100%;
@@ -92,6 +93,37 @@
     }
     #searchInput:focus {
       box-shadow: 0 16px 32px rgba(0,0,0,0.3), 0 0 0 3px rgba(56,189,248,0.5);
+    }
+    /* Clear search button */
+    .clear-search {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 4px 8px;
+      border-radius: 20px;
+      transition: 0.2s;
+      display: none;
+    }
+    .clear-search:hover {
+      color: #475569;
+      background: #e2e8f0;
+    }
+    .search-wrapper {
+      position: relative;
+    }
+    /* Search stats */
+    .search-stats {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      text-align: left;
+      padding-left: 20px;
     }
     /* Navigation */
     nav {
@@ -157,6 +189,8 @@
       margin-bottom: 1.8rem;
       border-left: 6px solid #38bdf8;
       padding-left: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .section-header h2 {
       font-weight: 700;
@@ -223,6 +257,13 @@
       align-items: center;
       gap: 6px;
     }
+    .highlight {
+      background: #fef08a;
+      color: #1e293b;
+      padding: 0 2px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
     .empty-state {
       background: #ffffff;
       border-radius: 36px;
@@ -232,6 +273,11 @@
       border: 1px dashed #cdd9e6;
       grid-column: 1 / -1;
       font-weight: 500;
+    }
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
     }
     .form-card {
       background: white;
@@ -280,6 +326,10 @@
       background: linear-gradient(105deg, #243b4d, #173244);
       box-shadow: 0 12px 22px rgba(0,0,0,0.15);
     }
+    .submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     .loading-spinner {
       text-align: center;
       padding: 3.5rem;
@@ -300,6 +350,44 @@
       color: #64748b;
       font-size: 0.85rem;
     }
+    .error-message {
+      background: #fee2e2;
+      color: #dc2626;
+      padding: 12px;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      text-align: center;
+      border-left: 4px solid #dc2626;
+    }
+    .success-message {
+      background: #d1fae5;
+      color: #065f46;
+      padding: 12px;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+      text-align: center;
+      border-left: 4px solid #10b981;
+    }
+    .file-input-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #1e293b;
+    }
+    input[type="file"] {
+      padding: 10px;
+      background: white;
+    }
+    @media (max-width: 768px) {
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      nav button {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -308,7 +396,9 @@
     <p>📚 Smart notes, exercises, tutorials & answers — all in one place</p>
     <div class="search-wrapper">
       <i class="fas fa-search"></i>
-      <input type="text" id="searchInput" placeholder="Search by title... (e.g. calculus, quiz)" autocomplete="off">
+      <input type="text" id="searchInput" placeholder="Search by title... (e.g. calculus, quiz, programming)" autocomplete="off">
+      <button class="clear-search" id="clearSearch" aria-label="Clear search"><i class="fas fa-times-circle"></i></button>
+      <div class="search-stats" id="searchStats"></div>
     </div>
   </header>
 
@@ -369,10 +459,14 @@
         <span style="color:#64748b;">Get personalized support</span>
       </div>
       <div class="form-card">
+        <div id="formMessage"></div>
         <form id="assignmentForm">
           <input type="text" id="studentName" placeholder="Your full name *" required>
           <input type="email" id="studentEmail" placeholder="Email address *" required>
           <textarea id="assignmentDetails" placeholder="Describe your assignment, deadline, specific requirements..." required rows="4"></textarea>
+          
+          <label class="file-input-label"><i class="fas fa-paperclip"></i> Attach file (optional)</label>
+          <input type="file" id="assignmentFile" accept=".pdf,.doc,.docx,.txt,.jpg,.png">
 
           <button type="submit" class="submit-btn"><i class="fas fa-paper-plane"></i> Submit Request</button>
         </form>
@@ -385,8 +479,7 @@
 
   <script>
     (function() {
-      // ---------- SUPABASE CONFIGURATION ----------
-      // Using the provided credentials (already configured)
+      // Supabase configuration
       const SUPABASE_URL = 'https://zmplzjbbsbkbwkvhpfth.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptcGx6amJic2JrYndrdmhwZnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjIyODgsImV4cCI6MjA4NDkzODI4OH0.E4DW4ApG5Okc09WMKA3QzsOTjurzc_QK_9MR2emaDqc';
       
@@ -394,27 +487,34 @@
       
       let allResources = [];
       let refreshTimer = null;
+      let currentSearchQuery = '';
       
-      // ---------- DATA FETCHING ----------
+      // Fetch resources from Supabase
       async function loadResources() {
-        const { data, error } = await supabase
-          .from('resources')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('Supabase fetch error:', error);
+        try {
+          const { data, error } = await supabase
+            .from('resources')
+            .select('*')
+            .order('created_at', { ascending: false });
+          
+          if (error) {
+            console.error('Supabase fetch error:', error);
+            return [];
+          }
+          return data || [];
+        } catch (err) {
+          console.error('Network error:', err);
           return [];
         }
-        return data || [];
       }
       
       function getFileIconByTitle(title) {
         if (!title) return '<i class="fas fa-file"></i>';
         const lower = title.toLowerCase();
         if (lower.includes('quiz') || lower.includes('test')) return '<i class="fas fa-file-signature"></i>';
-        if (lower.includes('pdf') || lower.includes('doc')) return '<i class="fas fa-file-pdf"></i>';
+        if (lower.includes('pdf')) return '<i class="fas fa-file-pdf"></i>';
         if (lower.includes('exercise') || lower.includes('problem')) return '<i class="fas fa-file-code"></i>';
+        if (lower.includes('doc')) return '<i class="fas fa-file-word"></i>';
         return '<i class="fas fa-file-alt"></i>';
       }
       
@@ -429,11 +529,23 @@
         });
       }
       
-      // ---------- RENDER SECTIONS ----------
+      // Highlight search term in text
+      function highlightText(text, query) {
+        if (!query || query.trim() === '') return escapeHtml(text);
+        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedQuery})`, 'gi');
+        return escapeHtml(text).replace(regex, '<span class="highlight">$1</span>');
+      }
+      
+      // Display files in all sections with search highlighting
       async function displayFiles() {
         allResources = await loadResources();
-        const query = document.getElementById('searchInput').value.trim().toLowerCase();
+        const searchInput = document.getElementById('searchInput');
+        const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        currentSearchQuery = query;
+        
         const sections = ['notes', 'exercises', 'quizzes', 'tutorials', 'answers'];
+        let totalMatches = 0;
         
         for (const section of sections) {
           const container = document.getElementById(`${section}List`);
@@ -445,25 +557,31 @@
             (query === '' || r.title.toLowerCase().includes(query))
           );
           
+          totalMatches += filtered.length;
+          
           if (countSpan) {
-            countSpan.textContent = `${filtered.length} item${filtered.length !== 1 ? 's' : ''}`;
+            countSpan.textContent = filtered.length;
           }
           
           if (filtered.length === 0) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open" style="font-size:2rem; opacity:0.6;"></i><p style="margin-top:10px;">No ${section} found${query ? ' matching search' : ''}</p></div>`;
+            if (query !== '') {
+              container.innerHTML = `<div class="empty-state"><i class="fas fa-search"></i><p>No ${section} found matching "<strong>${escapeHtml(query)}</strong>"</p><p style="font-size:0.85rem; margin-top:8px;">Try a different search term</p></div>`;
+            } else {
+              container.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><p>No ${section} available yet</p><p style="font-size:0.85rem; margin-top:8px;">Check back later for new content</p></div>`;
+            }
             continue;
           }
           
           container.innerHTML = filtered.map(file => {
-            const safeTitle = escapeHtml(file.title);
+            const highlightedTitle = highlightText(file.title, query);
             const safeUrl = escapeHtml(file.file_url);
             return `
               <div class="file-card">
                 <div class="file-icon">${getFileIconByTitle(file.title)}</div>
                 <div class="file-info">
-                  <a href="${safeUrl}" target="_blank" rel="noopener" title="${safeTitle}">${safeTitle}</a>
+                  <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(file.title)}">${highlightedTitle}</a>
                   <div class="file-meta">
-                    <i class="fas fa-external-link-alt"></i> Click to open
+                    <i class="fas fa-external-link-alt"></i> Click to open resource
                   </div>
                 </div>
               </div>
@@ -471,14 +589,43 @@
           }).join('');
         }
         
+        // Update search stats
+        updateSearchStats(query, totalMatches);
+        
         // Update footer timestamp
         const lastUpdateEl = document.getElementById('lastUpdate');
         if (lastUpdateEl) {
-          lastUpdateEl.textContent = `updated ${new Date().toLocaleTimeString()}`;
+          const now = new Date();
+          lastUpdateEl.textContent = `updated ${now.toLocaleTimeString()}`;
         }
       }
       
-      // ---------- TAB SWITCHING ----------
+      function updateSearchStats(query, totalMatches) {
+        const statsDiv = document.getElementById('searchStats');
+        const clearBtn = document.getElementById('clearSearch');
+        
+        if (query && query !== '') {
+          statsDiv.innerHTML = `<i class="fas fa-filter"></i> Showing ${totalMatches} result${totalMatches !== 1 ? 's' : ''} for "${escapeHtml(query)}"`;
+          statsDiv.style.display = 'block';
+          if (clearBtn) clearBtn.style.display = 'block';
+        } else {
+          statsDiv.innerHTML = '';
+          statsDiv.style.display = 'none';
+          if (clearBtn) clearBtn.style.display = 'none';
+        }
+      }
+      
+      // Clear search function
+      function clearSearch() {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+          searchInput.value = '';
+          displayFiles();
+          searchInput.focus();
+        }
+      }
+      
+      // Tab switching
       function showSection(sectionId) {
         document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
         const target = document.getElementById(sectionId);
@@ -490,57 +637,93 @@
             btn.classList.add('nav-active');
           }
         });
-        
-        // Refresh data when switching to assignment tab (to keep requests consistent, but displayFiles covers resources)
-        if (sectionId !== 'assignments') {
-          // already handled by global refresh
-        }
       }
       
-      // ---------- ASSIGNMENT SUBMISSION ----------
-      document.getElementById('assignmentForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const name = document.getElementById('studentName').value.trim();
-        const email = document.getElementById('studentEmail').value.trim();
-        const details = document.getElementById('assignmentDetails').value.trim();
-        const fileInput = document.getElementById('assignmentFile');
-        let fileName = null;
-        
-        if (fileInput.files.length > 0) {
-          fileName = fileInput.files[0].name;
-        }
-        
-        if (!name || !email || !details) {
-          alert('Please fill in all required fields (name, email, details).');
-          return;
-        }
-        
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        
-        const { error } = await supabase.from('assignment_requests').insert([{
-          name,
-          email,
-          details,
-          file_name: fileName,
-          status: 'pending'
-        }]);
-        
-        if (error) {
-          alert('❌ Submission failed. Please try again.');
-          console.error(error);
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
-        } else {
-          alert('✅ Request submitted successfully! Admin will review it.');
-          document.getElementById('assignmentForm').reset();
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
-        }
-      });
+      // Submit assignment request
+      const assignmentForm = document.getElementById('assignmentForm');
+      if (assignmentForm) {
+        assignmentForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const name = document.getElementById('studentName').value.trim();
+          const email = document.getElementById('studentEmail').value.trim();
+          const details = document.getElementById('assignmentDetails').value.trim();
+          const fileInput = document.getElementById('assignmentFile');
+          let fileName = null;
+          let fileBase64 = null;
+          
+          if (!name || !email || !details) {
+            showFormMessage('Please fill in all required fields (name, email, details).', 'error');
+            return;
+          }
+          
+          if (!email.includes('@') || !email.includes('.')) {
+            showFormMessage('Please enter a valid email address.', 'error');
+            return;
+          }
+          
+          const submitBtn = assignmentForm.querySelector('button[type="submit"]');
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+          
+          // Handle file if uploaded
+          if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            fileName = file.name;
+            fileBase64 = await convertFileToBase64(file);
+          }
+          
+          // Insert into assignment_requests table
+          const { error } = await supabase
+            .from('assignment_requests')
+            .insert([{
+              name: name,
+              email: email,
+              details: details,
+              file_name: fileName,
+              file_data: fileBase64,
+              status: 'pending',
+              created_at: new Date().toISOString()
+            }]);
+          
+          if (error) {
+            console.error('Submission error:', error);
+            showFormMessage('❌ Submission failed. Please try again. Error: ' + error.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+          } else {
+            showFormMessage('✅ Request submitted successfully! The admin will review it and get back to you soon.', 'success');
+            assignmentForm.reset();
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+            
+            // Clear message after 5 seconds
+            setTimeout(() => {
+              const msgDiv = document.getElementById('formMessage');
+              if (msgDiv) msgDiv.innerHTML = '';
+            }, 5000);
+          }
+        });
+      }
       
-      // ---------- EVENT LISTENERS ----------
+      function showFormMessage(message, type) {
+        const msgDiv = document.getElementById('formMessage');
+        msgDiv.innerHTML = `<div class="${type === 'error' ? 'error-message' : 'success-message'}">${message}</div>`;
+        setTimeout(() => {
+          if (msgDiv.firstChild) msgDiv.innerHTML = '';
+        }, 5000);
+      }
+      
+      function convertFileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = error => reject(error);
+        });
+      }
+      
+      // Navigation event listeners
       document.querySelectorAll('#navTabs button').forEach(btn => {
         btn.addEventListener('click', () => {
           const section = btn.getAttribute('data-section');
@@ -548,29 +731,38 @@
         });
       });
       
-      // Search with debounce
-      let debounceTimeout;
-      document.getElementById('searchInput').addEventListener('input', () => {
-        clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(() => {
-          displayFiles();
-        }, 250);
-      });
+      // Search with debounce and live updates
+      const searchInput = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('clearSearch');
       
-      // Initial load & auto-refresh (every 8 seconds to reduce load, but still fresh)
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          displayFiles(); // Real-time search without debounce for better responsiveness
+        });
+      }
+      
+      if (clearBtn) {
+        clearBtn.addEventListener('click', clearSearch);
+      }
+      
+      // Initial load
       displayFiles().then(() => {
-        console.log('Initial resources loaded.');
+        console.log('Resources loaded successfully');
+      }).catch(err => {
+        console.error('Failed to load resources:', err);
       });
       
-      refreshTimer = setInterval(displayFiles, 8000);
+      // Auto-refresh every 15 seconds
+      refreshTimer = setInterval(displayFiles, 15000);
       
-      // Cleanup timer on page unload (good practice)
+      // Cleanup on page unload
       window.addEventListener('beforeunload', () => {
         if (refreshTimer) clearInterval(refreshTimer);
       });
       
-      // Set initial active nav
-      document.querySelector('#navTabs button[data-section="notes"]').classList.add('nav-active');
+      // Set initial active state correctly
+      const activeBtn = document.querySelector('#navTabs button[data-section="notes"]');
+      if (activeBtn) activeBtn.classList.add('nav-active');
     })();
   </script>
 </body>
